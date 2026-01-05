@@ -1,0 +1,505 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Temporary hardcoded URL for development
+  url      = "postgresql://postgres:SkillProof@7020047992@jergntqjprousfycevjy.supabase.co:5432/postgres"
+}
+
+enum UserRole {
+  STUDENT
+  COMPANY
+  ADMIN
+}
+
+enum SkillLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum ProjectStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FLAGGED
+}
+
+enum BadgeType {
+  SKILL_VERIFICATION
+  PROJECT_EXCELLENCE
+  COMMUNITY_CONTRIBUTION
+  CODE_QUALITY
+  INNOVATION
+}
+
+enum SubscriptionPlan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum NotificationType {
+  PROJECT_APPROVED
+  PROJECT_REJECTED
+  SKILL_VERIFIED
+  BADGE_EARNED
+  APPLICATION_RECEIVED
+  PAYMENT_SUCCESS
+  SYSTEM_ANNOUNCEMENT
+}
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  username        String   @unique
+  firstName       String
+  lastName        String
+  password        String?
+  avatar          String?
+  bio             String?
+  role            UserRole @default(STUDENT)
+  isActive        Boolean  @default(true)
+  isEmailVerified Boolean  @default(false)
+  emailVerifiedAt DateTime?
+  lastLoginAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // OAuth
+  googleId        String?
+  githubId        String?
+  githubUsername  String?
+
+  // Relations
+  profile         StudentProfile?
+  company         Company?
+  projects        Project[]
+  skillVerifications SkillVerification[]
+  badges          UserBadge[]
+  applications    Application[]
+  notifications   Notification[]
+  subscriptions   Subscription[]
+  refreshTokens   RefreshToken[]
+  sessions        Session[]
+
+  @@map("users")
+}
+
+model StudentProfile {
+  id              String  @id @default(cuid())
+  userId          String  @unique
+  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Academic Info
+  university      String?
+  degree          String?
+  major           String?
+  graduationYear  Int?
+  
+  // Professional Info
+  experience      String? // "0-1", "1-3", "3-5", "5+"
+  location        String?
+  website         String?
+  linkedin        String?
+  resume          String?
+  
+  // GitHub Integration
+  githubUrl       String?
+  githubToken     String? // Encrypted
+  githubRepos     Json?   // Cached repository data
+  
+  // Preferences
+  isPublic        Boolean @default(true)
+  allowRecruiters Boolean @default(true)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("student_profiles")
+}
+
+model Company {
+  id              String  @id @default(cuid())
+  userId          String  @unique
+  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Company Info
+  name            String
+  description     String?
+  website         String?
+  industry        String?
+  size            String? // "1-10", "11-50", "51-200", "201-500", "500+"
+  location        String?
+  logo            String?
+  
+  // Verification
+  isVerified      Boolean @default(false)
+  verifiedAt      DateTime?
+  verificationDocs String? // Encrypted file path
+  
+  // Preferences
+  isActive        Boolean @default(true)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  jobs            Job[]
+  applications    Application[]
+
+  @@map("companies")
+}
+
+model Project {
+  id              String        @id @default(cuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Project Details
+  title           String
+  description     String
+  repositoryUrl   String
+  liveDemoUrl     String?
+  screenshots     String[] // Array of image URLs
+  techStack       String[] // Array of technologies
+  
+  // GitHub Integration
+  githubRepoId    String?
+  githubRepoName  String?
+  githubOwner     String?
+  
+  // Status
+  status          ProjectStatus @default(PENDING)
+  rejectionReason String?
+  
+  // AI Analysis
+  aiScore         Float? // 0-100
+  aiFeedback      Json?   // AI analysis results
+  plagiarismFlag  Boolean @default(false)
+  
+  // Metrics
+  views           Int @default(0)
+  likes           Int @default(0)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  skillVerifications SkillVerification[]
+  projectSkills    ProjectSkill[]
+  projectBadges    ProjectBadge[]
+
+  @@map("projects")
+}
+
+model Skill {
+  id              String  @id @default(cuid())
+  name            String  @unique
+  category        String  // "frontend", "backend", "devops", "mobile", etc.
+  description     String?
+  icon            String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  skillVerifications SkillVerification[]
+  projectSkills   ProjectSkill[]
+
+  @@map("skills")
+}
+
+model SkillVerification {
+  id              String     @id @default(cuid())
+  userId          String
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skillId         String
+  skill           Skill      @relation(fields: [skillId], references: [id])
+  projectId       String?
+  project         Project?   @relation(fields: [projectId], references: [id])
+  
+  // Verification Details
+  level           SkillLevel
+  score           Float      // 0-100
+  evidence        Json?      // Analysis data
+  verifiedBy      String?    // Admin ID
+  verifiedAt      DateTime?
+  expiresAt       DateTime?
+  
+  // Status
+  isActive        Boolean    @default(true)
+  
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@unique([userId, skillId, projectId])
+  @@map("skill_verifications")
+}
+
+model ProjectSkill {
+  id              String  @id @default(cuid())
+  projectId       String
+  project         Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  skillId         String
+  skill           Skill   @relation(fields: [skillId], references: [id])
+  
+  // AI detected proficiency
+  confidence      Float   // 0-1
+  evidence        Json?   // Code snippets, etc.
+  
+  createdAt       DateTime @default(now())
+
+  @@unique([projectId, skillId])
+  @@map("project_skills")
+}
+
+model Badge {
+  id              String    @id @default(cuid())
+  name            String
+  description     String
+  type            BadgeType
+  level           SkillLevel
+  icon            String?
+  color           String?
+  
+  // Criteria
+  criteria        Json?     // Requirements to earn this badge
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  userBadges      UserBadge[]
+  projectBadges   ProjectBadge[]
+
+  @@map("badges")
+}
+
+model UserBadge {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badgeId         String
+  badge           Badge    @relation(fields: [badgeId], references: [id])
+  projectId       String?
+  
+  earnedAt        DateTime @default(now())
+  expiresAt       DateTime?
+  isActive        Boolean  @default(true)
+  
+  @@unique([userId, badgeId, projectId])
+  @@map("user_badges")
+}
+
+model ProjectBadge {
+  id              String   @id @default(cuid())
+  projectId       String
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  badgeId         String
+  badge           Badge    @relation(fields: [badgeId], references: [id])
+  
+  awardedAt       DateTime @default(now())
+  awardedBy       String?  // Admin ID
+  
+  @@unique([projectId, badgeId])
+  @@map("project_badges")
+}
+
+model Job {
+  id              String   @id @default(cuid())
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  // Job Details
+  title           String
+  description     String
+  requirements    String[]
+  responsibilities String[]
+  skills          String[] // Required skills
+  
+  // Compensation
+  type            String   // "full-time", "part-time", "internship", "contract"
+  location        String?
+  remote          Boolean  @default(false)
+  salaryMin       Int?
+  salaryMax       Int?
+  currency        String   @default("USD")
+  
+  // Status
+  isActive        Boolean  @default(true)
+  featured        Boolean  @default(false)
+  
+  // Metrics
+  views           Int      @default(0)
+  applicationsCount Int    @default(0)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  expiresAt       DateTime?
+
+  // Relations
+  applications    Application[]
+
+  @@map("jobs")
+}
+
+model Application {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobId           String
+  job             Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  companyId       String
+  company         Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  // Application Details
+  coverLetter     String?
+  resume          String?
+  portfolio       String?
+  
+  // Status
+  status          String   @default("pending") // "pending", "viewed", "shortlisted", "rejected", "hired"
+  
+  // Company Actions
+  notes           String?
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, jobId])
+  @@map("applications")
+}
+
+model Subscription {
+  id              String           @id @default(cuid())
+  userId          String
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Subscription Details
+  plan            SubscriptionPlan
+  status          String           @default("active") // "active", "cancelled", "expired"
+  
+  // Billing
+  amount          Int
+  currency        String           @default("USD")
+  interval        String           // "month", "year"
+  
+  // Dates
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelledAt        DateTime?
+  endsAt             DateTime?
+  
+  // Stripe Integration
+  stripeCustomerId  String?
+  stripeSubscriptionId String?
+  
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@map("subscriptions")
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  userId          String
+  subscriptionId  String?
+  
+  // Payment Details
+  amount          Int
+  currency        String        @default("USD")
+  status          PaymentStatus @default(PENDING)
+  
+  // Stripe Integration
+  stripePaymentIntentId String?
+  stripeChargeId        String?
+  
+  // Dates
+  processedAt     DateTime?
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("payments")
+}
+
+model Notification {
+  id              String           @id @default(cuid())
+  userId          String
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Content
+  title           String
+  message         String
+  type            NotificationType
+  
+  // Metadata
+  data            Json?            // Additional data
+  
+  // Status
+  isRead          Boolean          @default(false)
+  readAt          DateTime?
+  
+  createdAt       DateTime         @default(now())
+
+  @@map("notifications")
+}
+
+model RefreshToken {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token           String   @unique
+  expiresAt       DateTime
+  
+  createdAt       DateTime @default(now())
+
+  @@map("refresh_tokens")
+}
+
+model Session {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionToken    String   @unique
+  expiresAt       DateTime
+  
+  // Device Info
+  userAgent       String?
+  ipAddress       String?
+  
+  createdAt       DateTime @default(now())
+
+  @@map("sessions")
+}
+
+model AuditLog {
+  id              String   @id @default(cuid())
+  userId          String?
+  action          String
+  resource        String
+  resourceId      String?
+  oldValues       Json?
+  newValues       Json?
+  ipAddress       String?
+  userAgent       String?
+  
+  createdAt       DateTime @default(now())
+
+  @@map("audit_logs")
+}
