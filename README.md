@@ -187,6 +187,4 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 Please read our [Contributing Guide](./docs/contributing.md) for details on our code of conduct and the process for submitting pull requests.
 
-## 📞 Support
 
-For support, email support@skillproof.com or create an issue in the repository.
