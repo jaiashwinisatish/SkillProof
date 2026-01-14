@@ -5,8 +5,8 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './config/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
-import { ProjectsModule } from './projects/projects.module';
-import { SkillsModule } from './skills/skills.module';
+import { PlatformIntegrationModule } from './platform-integration/platform-integration.module';
+import { SkillAnalysisModule } from './skill-analysis/skill-analysis.module';
 import { CompaniesModule } from './companies/companies.module';
 import { AdminModule } from './admin/admin.module';
 import { PaymentsModule } from './payments/payments.module';
@@ -41,12 +41,12 @@ import { HealthModule } from './config/health.module';
     // Feature modules
     AuthModule,
     UsersModule,
-    ProjectsModule,
-    SkillsModule,
     CompaniesModule,
     AdminModule,
     PaymentsModule,
     NotificationsModule,
+    PlatformIntegrationModule,
+    SkillAnalysisModule,
   ],
   controllers: [],
   providers: [],
